@@ -1,79 +1,44 @@
 from ultralytics import YOLO
 from pathlib import Path
 from collections import defaultdict, deque
-import matplotlib.pyplot as plt
 import cv2
 import time
 import csv
 import re
 
-
-# ============================================================
-# Modelle
-# ============================================================
-
-models = [
-    # YOLOv8
-    "yolov8n.pt",
-    "yolov8s.pt",
-    "yolov8m.pt",
-    "yolov8x.pt",
-
-    # YOLO11
-    "yolo11n.pt",
-    "yolo11s.pt",
-    "yolo11m.pt",
-    "yolo11x.pt",
-
-    # YOLO26
-    "yolo26n.pt",
-    "yolo26s.pt",
-    "yolo26m.pt",
-    "yolo26x.pt",
-]
-
-# Falls dir das zu lange dauert, kannst du wieder kürzen:
-# models = [
-#     "yolov8n.pt",
-#     "yolov8m.pt",
-#     "yolo11n.pt",
-#     "yolo11s.pt",
-#     "yolo26m.pt",
-#     "yolo26x.pt",
-# ]
-
-
-# ============================================================
-# Pfade
-# ============================================================
-
+#Configurations
 BASE_DIR = Path(__file__).resolve().parent.parent
+MODEL_DIR = BASE_DIR / "src" / "models"
+models = [
+    MODEL_DIR / "yolov8n.pt",
+    MODEL_DIR / "yolov8s.pt",
+    MODEL_DIR / "yolov8m.pt",
+    MODEL_DIR / "yolov8x.pt",
+    MODEL_DIR / "yolo11n.pt",
+    MODEL_DIR / "yolo11s.pt",
+    MODEL_DIR / "yolo11m.pt",
+    MODEL_DIR / "yolo11x.pt",
+    MODEL_DIR / "yolo26n.pt",
+    MODEL_DIR / "yolo26s.pt",
+    MODEL_DIR / "yolo26m.pt",
+    MODEL_DIR / "yolo26x.pt",
+]
 VIDEO_PATH = BASE_DIR / "input_videos" / "video4.mp4"
-
-OUTPUT_DIR = BASE_DIR / "output" / "model_comparison_refined"
+OUTPUT_DIR = BASE_DIR / "output" / "model_comparison"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 CSV_PATH = OUTPUT_DIR / "comparison_results.csv"
 
-
-# ============================================================
-# Einstellungen
-# ============================================================
-
 CONFIDENCE = 0.2
 PERSON_CLASS_ID = 0
 
-# y = 0 ist oben, größere Werte gehen nach unten
 LINE_Y = 100
 
-# kleiner Schutz gegen Zählung durch minimales Zittern
 MIN_MOVEMENT = 3
 
-# Tracking-Spuren
 DRAW_TRACK_HISTORY = True
 TRACK_HISTORY_LENGTH = 8
 
-# Preprocessing
 PREPROCESSING_MODE = "clahe_sharpen"
 # mögliche Werte:
 # "none"
@@ -85,22 +50,15 @@ PREPROCESSING_MODE = "clahe_sharpen"
 # "strong_clahe_sharpen"
 
 TRACKER = "bytetrack.yaml"
-# Alternative:
-# TRACKER = "botsort.yaml"
+# Alternative:botsort.yaml
 
 SHOW_PREVIEW = True
-
 SAVE_YOLO_VIDEO = True
 SAVE_PROCESSED_VIDEO = True
-
 GROUND_TRUTH_ENTRY = 33
 GROUND_TRUTH_EXIT = 15
 
-
-# ============================================================
-# Preprocessing
-# ============================================================
-
+#Functions
 def preprocess_frame(frame, mode="none"):
     """
     Bearbeitet einen Frame vor der YOLO-Erkennung.
@@ -123,93 +81,51 @@ def preprocess_frame(frame, mode="none"):
     if mode == "clahe":
         lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
         l_channel, a_channel, b_channel = cv2.split(lab)
-
-        clahe = cv2.createCLAHE(
-            clipLimit=2.0,
-            tileGridSize=(8, 8)
-        )
-
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
         enhanced_l = clahe.apply(l_channel)
         enhanced_lab = cv2.merge((enhanced_l, a_channel, b_channel))
-
         return cv2.cvtColor(enhanced_lab, cv2.COLOR_LAB2BGR)
 
     if mode == "sharpen":
         blurred = cv2.GaussianBlur(frame, (0, 0), 1.0)
 
-        return cv2.addWeighted(
-            frame,
-            1.5,
-            blurred,
-            -0.5,
-            0
-        )
+        return cv2.addWeighted(frame, 1.5, blurred, -0.5, 0)
 
     if mode == "clahe_sharpen":
         lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
         l_channel, a_channel, b_channel = cv2.split(lab)
-
-        clahe = cv2.createCLAHE(
-            clipLimit=2.0,
-            tileGridSize=(8, 8)
-        )
-
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
         enhanced_l = clahe.apply(l_channel)
         enhanced_lab = cv2.merge((enhanced_l, a_channel, b_channel))
         enhanced_frame = cv2.cvtColor(enhanced_lab, cv2.COLOR_LAB2BGR)
-
         blurred = cv2.GaussianBlur(enhanced_frame, (0, 0), 1.0)
 
-        return cv2.addWeighted(
-            enhanced_frame,
-            1.4,
-            blurred,
-            -0.4,
-            0
-        )
+        return cv2.addWeighted(enhanced_frame, 1.4, blurred, -0.4, 0)
 
     if mode == "strong_clahe_sharpen":
         lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
         l_channel, a_channel, b_channel = cv2.split(lab)
-
-        clahe = cv2.createCLAHE(
-            clipLimit=4.0,
-            tileGridSize=(8, 8)
-        )
-
+        clahe = cv2.createCLAHE(clipLimit=4.0, tileGridSize=(8, 8))
         enhanced_l = clahe.apply(l_channel)
         enhanced_lab = cv2.merge((enhanced_l, a_channel, b_channel))
         enhanced_frame = cv2.cvtColor(enhanced_lab, cv2.COLOR_LAB2BGR)
 
         blurred = cv2.GaussianBlur(enhanced_frame, (0, 0), 1.0)
 
-        return cv2.addWeighted(
-            enhanced_frame,
-            1.8,
-            blurred,
-            -0.8,
-            0
-        )
+        return cv2.addWeighted(enhanced_frame, 1.8, blurred, -0.8, 0)
 
     raise ValueError(f"Unbekannter Preprocessing-Modus: {mode}")
 
 
-# ============================================================
-# Modellinformationen
-# ============================================================
-
 def parse_model_info(model_name):
     """
     Extrahiert Modellfamilie und Modellgröße.
-
     Beispiele:
     yolov8n.pt  -> family = YOLOv8, size = n
     yolo11s.pt  -> family = YOLO11, size = s
     yolo26x.pt  -> family = YOLO26, size = x
     """
-
     stem = Path(model_name).stem
-
     match = re.match(r"(yolov?\d+)([nslmx])", stem)
 
     if match:
@@ -218,25 +134,7 @@ def parse_model_info(model_name):
     else:
         family = stem
         size = "unknown"
-
     return family, size
-
-
-def model_size_rank(size):
-    order = {
-        "n": 0,
-        "s": 1,
-        "m": 2,
-        "l": 3,
-        "x": 4,
-    }
-
-    return order.get(size, 99)
-
-
-# ============================================================
-# Zeichnen
-# ============================================================
 
 def draw_info(annotated_frame, entry_count, exit_count, line_y):
     """
@@ -244,15 +142,7 @@ def draw_info(annotated_frame, entry_count, exit_count, line_y):
     """
 
     height, width = annotated_frame.shape[:2]
-
-    cv2.line(
-        annotated_frame,
-        (0, line_y),
-        (width, line_y),
-        (0, 255, 255),
-        2
-    )
-
+    cv2.line(annotated_frame, (0, line_y), (width, line_y), (0, 255, 255), 2)
     cv2.putText(
         annotated_frame,
         "Counting Line",
@@ -260,9 +150,8 @@ def draw_info(annotated_frame, entry_count, exit_count, line_y):
         cv2.FONT_HERSHEY_SIMPLEX,
         0.8,
         (0, 255, 255),
-        2
+        2,
     )
-
     cv2.putText(
         annotated_frame,
         f"Entry: {entry_count}",
@@ -270,9 +159,8 @@ def draw_info(annotated_frame, entry_count, exit_count, line_y):
         cv2.FONT_HERSHEY_SIMPLEX,
         1,
         (0, 255, 0),
-        2
+        2,
     )
-
     cv2.putText(
         annotated_frame,
         f"Exit: {exit_count}",
@@ -280,9 +168,8 @@ def draw_info(annotated_frame, entry_count, exit_count, line_y):
         cv2.FONT_HERSHEY_SIMPLEX,
         1,
         (0, 0, 255),
-        2
+        2,
     )
-
 
 def draw_track_history(annotated_frame, track_history, active_ids):
     """
@@ -294,36 +181,16 @@ def draw_track_history(annotated_frame, track_history, active_ids):
 
     for track_id in active_ids:
         points = track_history.get(track_id)
-
         if points is None or len(points) < 2:
             continue
-
         point_list = list(points)
-
         for i in range(1, len(point_list)):
             x1, y1 = point_list[i - 1]
             x2, y2 = point_list[i]
-
-            cv2.line(
-                annotated_frame,
-                (x1, y1),
-                (x2, y2),
-                (255, 0, 255),
-                2
-            )
-
-
-# ============================================================
-# Fehlerberechnung
-# ============================================================
+            cv2.line(annotated_frame, (x1, y1), (x2, y2), (255, 0, 255), 2)
 
 def calculate_error(predicted, ground_truth):
     return abs(predicted - ground_truth)
-
-
-# ============================================================
-# Videoverarbeitung
-# ============================================================
 
 def process_video_with_model(model_name):
     print("\n" + "=" * 60)
@@ -334,15 +201,13 @@ def process_video_with_model(model_name):
         raise FileNotFoundError(f"Video wurde nicht gefunden: {VIDEO_PATH}")
 
     family, size = parse_model_info(model_name)
-
     try:
-        model = YOLO(model_name)
+        model = YOLO(str(model_name))
     except Exception as e:
         print(f"Modell konnte nicht geladen werden: {model_name}")
         print(f"Fehler: {e}")
-
         return {
-            "model": model_name,
+            "model": Path(model_name).name,
             "family": family,
             "size": size,
             "status": "load_error",
@@ -381,21 +246,15 @@ def process_video_with_model(model_name):
 
     entry_count = 0
     exit_count = 0
-
     previous_positions = {}
     counted_ids = set()
-
     track_history = defaultdict(lambda: deque(maxlen=TRACK_HISTORY_LENGTH))
-
     frame_count = 0
     start_time = time.time()
-
     yolo_writer = None
     processed_writer = None
-
     yolo_video_path = None
     processed_video_path = None
-
     video_fps = original_fps if original_fps > 0 else 25
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
 
@@ -403,81 +262,46 @@ def process_video_with_model(model_name):
     conf_label = str(CONFIDENCE).replace(".", "")
 
     if SAVE_YOLO_VIDEO:
-        yolo_video_path = OUTPUT_DIR / (
-            f"{model_stem}_{PREPROCESSING_MODE}_conf{conf_label}_yolo.mp4"
-        )
-
-        yolo_writer = cv2.VideoWriter(
-            str(yolo_video_path),
-            fourcc,
-            video_fps,
-            (frame_width, frame_height)
-        )
+        yolo_video_path = OUTPUT_DIR / (f"{model_stem}_{PREPROCESSING_MODE}_conf{conf_label}_yolo.mp4")
+        yolo_writer = cv2.VideoWriter(str(yolo_video_path), fourcc, video_fps, (frame_width, frame_height))
 
     if SAVE_PROCESSED_VIDEO:
-        processed_video_path = OUTPUT_DIR / (
-            f"{model_stem}_{PREPROCESSING_MODE}_conf{conf_label}_processed.mp4"
-        )
-
-        processed_writer = cv2.VideoWriter(
-            str(processed_video_path),
-            fourcc,
-            video_fps,
-            (frame_width, frame_height)
-        )
+        processed_video_path = OUTPUT_DIR / (f"{model_stem}_{PREPROCESSING_MODE}_conf{conf_label}_processed.mp4")
+        processed_writer = cv2.VideoWriter(str(processed_video_path), fourcc, video_fps, (frame_width, frame_height))
 
     if SHOW_PREVIEW:
-        cv2.namedWindow(
-            f"YOLO People Counter - {model_name}",
-            cv2.WINDOW_NORMAL
-        )
+        cv2.namedWindow(f"YOLO People Counter - {model_name}", cv2.WINDOW_NORMAL)
 
     while True:
         ret, frame = cap.read()
-
         if not ret:
             break
-
         frame_count += 1
-
         processed_frame = preprocess_frame(frame, PREPROCESSING_MODE)
-
         results = model.track(
             processed_frame,
             persist=True,
             conf=CONFIDENCE,
             classes=[PERSON_CLASS_ID],
             tracker=TRACKER,
-            verbose=False
+            verbose=False,
         )
 
         annotated_frame = results[0].plot()
         boxes = results[0].boxes
-
         active_ids = set()
 
         if boxes.id is not None:
             ids = boxes.id.cpu().numpy().astype(int)
             xyxy = boxes.xyxy.cpu().numpy()
-
             active_ids = set(ids)
 
             for box, track_id in zip(xyxy, ids):
                 x1, y1, x2, y2 = box
-
                 center_x = int((x1 + x2) / 2)
                 center_y = int((y1 + y2) / 2)
-
                 track_history[track_id].append((center_x, center_y))
-
-                cv2.circle(
-                    annotated_frame,
-                    (center_x, center_y),
-                    5,
-                    (0, 0, 255),
-                    -1
-                )
-
+                cv2.circle(annotated_frame, (center_x, center_y), 5, (0, 0, 255), -1)
                 cv2.putText(
                     annotated_frame,
                     f"ID {track_id}",
@@ -485,7 +309,7 @@ def process_video_with_model(model_name):
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.5,
                     (0, 0, 255),
-                    2
+                    2,
                 )
 
                 if track_id in previous_positions:
@@ -494,37 +318,19 @@ def process_video_with_model(model_name):
 
                     if track_id not in counted_ids:
                         # Von oben nach unten
-                        if (
-                            previous_y < LINE_Y
-                            and center_y >= LINE_Y
-                            and movement >= MIN_MOVEMENT
-                        ):
+                        if (previous_y < LINE_Y and center_y >= LINE_Y and movement >= MIN_MOVEMENT):
                             exit_count += 1
                             counted_ids.add(track_id)
 
                         # Von unten nach oben
-                        elif (
-                            previous_y > LINE_Y
-                            and center_y <= LINE_Y
-                            and movement <= -MIN_MOVEMENT
-                        ):
+                        elif (previous_y > LINE_Y and center_y <= LINE_Y and movement <= -MIN_MOVEMENT):
                             entry_count += 1
                             counted_ids.add(track_id)
 
                 previous_positions[track_id] = center_y
 
-        draw_track_history(
-            annotated_frame,
-            track_history,
-            active_ids
-        )
-
-        draw_info(
-            annotated_frame,
-            entry_count,
-            exit_count,
-            LINE_Y
-        )
+        draw_track_history(annotated_frame, track_history, active_ids)
+        draw_info(annotated_frame, entry_count, exit_count, LINE_Y)
 
         if yolo_writer is not None:
             yolo_writer.write(annotated_frame)
@@ -533,11 +339,7 @@ def process_video_with_model(model_name):
             processed_writer.write(processed_frame)
 
         if SHOW_PREVIEW:
-            cv2.imshow(
-                f"YOLO People Counter - {model_name}",
-                annotated_frame
-            )
-
+            cv2.imshow(f"YOLO People Counter - {model_name}", annotated_frame)
             key = cv2.waitKey(1) & 0xFF
 
             # q beendet nur aktuelles Modell
@@ -548,15 +350,12 @@ def process_video_with_model(model_name):
             # ESC beendet komplett
             if key == 27:
                 print("Programm wurde durch Nutzer beendet.")
-
                 cap.release()
-
                 if yolo_writer is not None:
                     yolo_writer.release()
 
                 if processed_writer is not None:
                     processed_writer.release()
-
                 cv2.destroyAllWindows()
                 raise KeyboardInterrupt
 
@@ -567,19 +366,15 @@ def process_video_with_model(model_name):
 
     if yolo_writer is not None:
         yolo_writer.release()
-
     if processed_writer is not None:
         processed_writer.release()
-
     if SHOW_PREVIEW:
         cv2.destroyAllWindows()
 
     processing_fps = frame_count / total_time if total_time > 0 else 0
-
     entry_error = calculate_error(entry_count, GROUND_TRUTH_ENTRY)
     exit_error = calculate_error(exit_count, GROUND_TRUTH_EXIT)
     total_error = entry_error + exit_error
-
     print(f"Frames verarbeitet: {frame_count}")
     print(f"Laufzeit: {total_time:.2f} Sekunden")
     print(f"Processing FPS: {processing_fps:.2f}")
@@ -596,7 +391,7 @@ def process_video_with_model(model_name):
         print("Processed-Video gespeichert unter:", processed_video_path)
 
     return {
-        "model": model_name,
+        "model": Path(model_name).name,
         "family": family,
         "size": size,
         "status": "ok",
@@ -615,11 +410,6 @@ def process_video_with_model(model_name):
         "yolo_video": str(yolo_video_path) if yolo_video_path else None,
         "processed_video": str(processed_video_path) if processed_video_path else None,
     }
-
-
-# ============================================================
-# CSV
-# ============================================================
 
 def save_results_to_csv(results):
     fieldnames = [
@@ -651,136 +441,6 @@ def save_results_to_csv(results):
     print("\nCSV gespeichert unter:")
     print(CSV_PATH)
 
-
-# ============================================================
-# Plots
-# ============================================================
-
-def get_valid_results(results):
-    return [
-        r for r in results
-        if r["status"] == "ok"
-        and r["fps_processing"] is not None
-        and r["total_error"] is not None
-    ]
-
-
-def plot_tradeoff(results):
-    valid_results = get_valid_results(results)
-
-    plt.figure(figsize=(9, 6))
-
-    for r in valid_results:
-        plt.scatter(
-            r["fps_processing"],
-            r["total_error"],
-            s=100
-        )
-
-        label = r["model"].replace(".pt", "")
-
-        plt.annotate(
-            label,
-            (r["fps_processing"], r["total_error"])
-        )
-
-    plt.xlabel("FPS")
-    plt.ylabel("Gesamtfehler")
-    plt.title("Genauigkeit vs Geschwindigkeit")
-    plt.grid(True)
-    plt.tight_layout()
-
-    plt.savefig(OUTPUT_DIR / "accuracy_vs_speed.png")
-    plt.show()
-
-
-def plot_model_progression_error(results):
-    """
-    Zeigt, wie sich der Gesamtfehler innerhalb einer YOLO-Familie
-    von n über s/m bis x verändert.
-    """
-
-    valid_results = get_valid_results(results)
-
-    families = sorted(set(r["family"] for r in valid_results))
-
-    plt.figure(figsize=(10, 6))
-
-    for family in families:
-        family_results = [
-            r for r in valid_results
-            if r["family"] == family
-        ]
-
-        family_results = sorted(
-            family_results,
-            key=lambda r: model_size_rank(r["size"])
-        )
-
-        x_values = [r["size"] for r in family_results]
-        y_values = [r["total_error"] for r in family_results]
-
-        plt.plot(
-            x_values,
-            y_values,
-            marker="o",
-            label=family
-        )
-
-    plt.xlabel("Modellgröße")
-    plt.ylabel("Gesamtfehler")
-    plt.title("Modellverlauf: Gesamtfehler nach YOLO-Familie")
-    plt.grid(True)
-    plt.legend()
-    plt.tight_layout()
-
-    plt.savefig(OUTPUT_DIR / "model_progression_error.png")
-    plt.show()
-
-
-def plot_model_progression_fps(results):
-    """
-    Zeigt, wie sich die Geschwindigkeit innerhalb einer YOLO-Familie
-    von n über s/m bis x verändert.
-    """
-
-    valid_results = get_valid_results(results)
-
-    families = sorted(set(r["family"] for r in valid_results))
-
-    plt.figure(figsize=(10, 6))
-
-    for family in families:
-        family_results = [
-            r for r in valid_results
-            if r["family"] == family
-        ]
-
-        family_results = sorted(
-            family_results,
-            key=lambda r: model_size_rank(r["size"])
-        )
-
-        x_values = [r["size"] for r in family_results]
-        y_values = [r["fps_processing"] for r in family_results]
-
-        plt.plot(
-            x_values,
-            y_values,
-            marker="o",
-            label=family
-        )
-
-    plt.xlabel("Modellgröße")
-    plt.ylabel("FPS")
-    plt.title("Modellverlauf: Verarbeitungsgeschwindigkeit nach YOLO-Familie")
-    plt.grid(True)
-    plt.legend()
-    plt.tight_layout()
-
-    plt.savefig(OUTPUT_DIR / "model_progression_fps.png")
-    plt.show()
-
 def main():
     print("Starte YOLO-Modellvergleich")
     print("Video:", VIDEO_PATH)
@@ -797,10 +457,6 @@ def main():
 
     save_results_to_csv(all_results)
 
-    plot_tradeoff(all_results)
-    plot_model_progression_error(all_results)
-    plot_model_progression_fps(all_results)
-
     print("\n" + "=" * 60)
     print("Zusammenfassung")
     print("=" * 60)
@@ -816,7 +472,6 @@ def main():
             f"Exit={result['exit_count']}, "
             f"Gesamtfehler={result['total_error']}"
         )
-
 
 if __name__ == "__main__":
     main()

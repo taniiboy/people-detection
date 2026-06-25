@@ -8,7 +8,7 @@ Zur Personenerkennung werden verschiedene YOLO-Modelle verwendet. Die Personen w
 
 ## You only look once (YOLO)
 
-Das erste YOLO Modell wurde erstmals 2015 eingeführt und von Joseph Redmon und Ali Farhadi entwickelt und dient zur Objekterkennung, Bildsegmentierung und Tracking. Über die Jahre wurden die Modelle immer wieder verbesseert und am 14. Januar 2026 wurde das neuste Modell veröffentlicht (YOLO26).
+YOLO (You Only Look Once) gehört zu den bekanntesten Echtzeitverfahren der Objekterkennung. Das erste YOLO Modell wurde erstmals 2015 eingeführt und von Joseph Redmon und Ali Farhadi entwickelt und dient zur Objekterkennung, Bildsegmentierung und Tracking. Über die Jahre wurden die Modelle immer wieder verbessert und am 14. Januar 2026 wurde das neuste Modell veröffentlicht (YOLO26).
 
 
 
@@ -92,40 +92,49 @@ input_videos/video4.mp4
 ```
 ## Projektstruktur
 ```text
-input_videos/video4.mp4
 people-detection/
 │
 ├── input_videos/
 │   └── video4.mp4
 │
 ├── output/
-│   └── model_comparison/
+│   └── model_comparison_refined/
 │
 ├── src/
-│   └── people_counter.py
+│   ├── models/
+│   ├── people_counter.py
+│   └── plot_results.py
 │
+├── requirements.txt
 └── README.md
 ```
-## Benötigte Pakete
+## Installation
 ```text
-pip install ultralytics
-pip install opencv-python
-pip install matplotlib
+pip install -r requirements.txt
 ```
 
 ## Bewertungsmetriken:
-- Entry Count
-- Exit Count
-- Entry Error
-- Exit Error
-- Total Error
-- Processing FPS
+- Entry Count: erkannte Eintritte
+- Exit Count: erkannte Austritte
+- Entry Error: Abweichung zur Ground Truth
+- Exit Error: Abweichung zur Ground Truth
+- Total Error: Summe aus Entry- und Exit-Fehler
+- Processing FPS: Verarbeitungsgeschwindigkeit
 
 ## Ergebnisse:
-Die Modelle werden hinsichtlich der Erkennungsgenauigkeit, Zählgenauigkeit und Verarbeitungsgeschwindigkeit verglichen.
+Die Modelle werden hinsichtlich
+- Erkennungsgenauigkeit
+- Zählgenauigkeit
+- Verarbeitungsgeschwindigkeit 
+
+miteinander verglichen. Die Auswertung erfolgt anhand der erzeugten CSV-Datei sowie verschiedener Diagramme.
 
 ## Probleme: 
 - Personen werden teilweise nicht oder schlecht erkannt und getracked.
-Yolo Modelle werden zwar mit großen Datensätzen trainiert, allerdings für Objekterkennung im Allgemeinen (Menschen, Tiere, Fahrzeuge...)
+YOLO-Modelle werden mit großen Datensätzen für allgemeine Objekterkennung trainiert (Menschen, Tiere, Fahrzeuge...)
 -> Modell mit spezialisierten Datensatz trainieren
-- Videoqualität (Auflösung, Wasserzeichen, Lichtverhältnisse) 
+- Videoqualität (geringe Auflösung, Wasserzeichen, schlechte Lichtverhältnisse beeinflussen die Erkennung) 
+- Verdeckungen oder dicht beeinander laufende Personen kann es zu Fehler beim Tracking oder Zählungen kommen
+- Preprocessing kann die Erkennung verbssern, aber auch bestimmte Artefakte verschlimmern
+
+

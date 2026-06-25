@@ -2,9 +2,8 @@ from pathlib import Path
 import pandas as pd
 import matplotlib.pyplot as plt
 
-
 BASE_DIR = Path(__file__).resolve().parent.parent
-CSV_PATH = BASE_DIR / "output" / "model_comparison_refined" / "comparison_results.csv"
+CSV_PATH = BASE_DIR / "output" / "model_comparison" / "comparison_results.csv"
 OUTPUT_DIR = CSV_PATH.parent
 
 FAMILY_COLORS = {
@@ -21,50 +20,36 @@ SIZE_ORDER = {
     "x": 4,
 }
 
-
 def get_family(model_name):
     model_name = model_name.lower()
-
     if "yolov8" in model_name:
         return "YOLOv8"
-
     if "yolo11" in model_name:
         return "YOLO11"
-
     if "yolo26" in model_name:
         return "YOLO26"
-
     return "Unknown"
-
 
 def get_size(model_name):
     stem = Path(model_name).stem
     return stem[-1]
 
-
 def load_results():
     df = pd.read_csv(CSV_PATH)
-
     if "total_error" not in df.columns:
         df["total_error"] = df["entry_error"] + df["exit_error"]
-
     df["family"] = df["model"].apply(get_family)
     df["size"] = df["model"].apply(get_size)
     df["size_rank"] = df["size"].map(SIZE_ORDER)
-
     df = df.sort_values(["family", "size_rank"])
-
     return df
-
 
 def plot_accuracy_vs_speed(df):
     plt.figure(figsize=(10, 7))
 
     for family, group in df.groupby("family"):
         group = group.sort_values("size_rank")
-
         color = FAMILY_COLORS.get(family, "gray")
-
         plt.plot(
             group["fps_processing"],
             group["total_error"],
@@ -77,7 +62,6 @@ def plot_accuracy_vs_speed(df):
 
         for _, row in group.iterrows():
             label = row["model"].replace(".pt", "")
-
             plt.annotate(
                 label,
                 (row["fps_processing"], row["total_error"]),
@@ -92,19 +76,13 @@ def plot_accuracy_vs_speed(df):
     plt.grid(True)
     plt.legend()
     plt.tight_layout()
-
     output_path = OUTPUT_DIR / "accuracy_vs_speed_family_lines.png"
     plt.savefig(output_path, dpi=300)
     plt.show()
 
-    print("Plot gespeichert unter:", output_path)
-
-
 def main():
     print("Lade CSV:", CSV_PATH)
-
     df = load_results()
-
     print("\nGeladene Ergebnisse:")
     print(
         df[
@@ -123,7 +101,6 @@ def main():
     )
 
     plot_accuracy_vs_speed(df)
-
 
 if __name__ == "__main__":
     main()
