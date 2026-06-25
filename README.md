@@ -138,3 +138,6 @@ YOLO-Modelle werden mit großen Datensätzen für allgemeine Objekterkennung tra
 - Preprocessing kann die Erkennung verbssern, aber auch bestimmte Artefakte verschlimmern
 
 
+## Authors
+- Tan Loc Huschka (@taniiboy)
+- Alexander Korolev (@AlexKoro186)
