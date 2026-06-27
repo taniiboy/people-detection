@@ -17,9 +17,14 @@ output/
 !input_videos/
 !input_videos/video4.mp4
 
+# Assets
+!assets/
+!assets/images/
+!assets/images/*.png
+!assets/images/*.jpg
+
 # Ergebnisse
 *.csv
-*.png
 
 # YOLO weights
 *.pt
