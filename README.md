@@ -155,7 +155,3 @@ YOLO-Modelle werden mit großen Datensätzen für allgemeine Objekterkennung tra
 ## Authors
 - Tan Loc Huschka (@taniiboy)
 - Alexander Korolev (@AlexKoro186)
-
-## Authors
-- Tan Loc Huschka (@taniiboy)
-- Alexander Korolev (@AlexKoro186)
